@@ -22,6 +22,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
+#include <stdbool.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -31,7 +32,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define AlertaMov 500
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -45,11 +46,14 @@ ADC_HandleTypeDef hadc1;
 SPI_HandleTypeDef hspi1;
 
 /* USER CODE BEGIN PV */
-volatile uint8_t flagmover;
+volatile bool flagmover;
 uint8_t newx, newy, newz;
 uint8_t oldx, oldy, oldz;
 uint8_t data_ctrl1, address_ctrl1;
 uint8_t valuechange, changeaddress;
+uint8_t XDA,YDA,ZDA, XYZDA;
+uint8_t bigX,bigY,bigZ,smlX,smlY,smlZ,Xadr,Yadr,Zadr;
+uint32_t lastX,lastY,lastZ;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -109,6 +113,8 @@ int main(void)
   HAL_SPI_Transmit(&hspi1, &address_ctrl1, 1, 50);
   HAL_SPI_Transmit(&hspi1, &data_ctrl1, 1, 50);
   HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_SET);
+  //Mascaras
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -123,11 +129,77 @@ int main(void)
 	 HAL_SPI_Transmit(&hspi1, &changeaddress, 1, 50);
 	 HAL_SPI_Receive(&hspi1, &valuechange, 1, 50);
 	 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_SET);
-
+	//Se deben separar los bits importantes, para eso se utiliza el operador & y una mascara
+	 XDA= valuechange & 0x01;
+	 YDA= valuechange & 0x02;
+	 ZDA= valuechange & 0x04;
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	//Si hay nuevos valores cojerlos.
+	if(XDA == 0x01){
+		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_RESET);
+		 Xadr= 0x28 | 0x80;
+		 HAL_SPI_Transmit(&hspi1, &Xadr, 1, 50);
+		 HAL_SPI_Receive(&hspi1, &bigX, 1, 50);
+		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_SET);
 
+		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_RESET);
+		 Xadr= 0x29 | 0x80;
+		 HAL_SPI_Transmit(&hspi1, &Xadr, 1, 50);
+		 HAL_SPI_Receive(&hspi1, &smlX, 1, 50);
+		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_SET);
+		 newx= bigX;
+	}
+	if(YDA == 0x02){
+		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_RESET);
+		 Yadr= 0x2A | 0x80;
+		 HAL_SPI_Transmit(&hspi1, &Yadr, 1, 50);
+		 HAL_SPI_Receive(&hspi1, &bigY, 1, 50);
+		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_SET);
+
+		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_RESET);
+		 Yadr= 0x2B | 0x80;
+		 HAL_SPI_Transmit(&hspi1, &Yadr, 1, 50);
+		 HAL_SPI_Receive(&hspi1, &smlY, 1, 50);
+		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_SET);
+		 newy= bigY;
+	}
+	if(ZDA == 0x04){
+		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_RESET);
+		 Zadr= 0x2C | 0x80;
+		 HAL_SPI_Transmit(&hspi1, &Zadr, 1, 50);
+		 HAL_SPI_Receive(&hspi1, &bigZ, 1, 50);
+		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_SET);
+
+		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_RESET);
+		 Zadr= 0x2D | 0x80;
+		 HAL_SPI_Transmit(&hspi1, &Zadr, 1, 50);
+		 HAL_SPI_Receive(&hspi1, &smlZ, 1, 50);
+		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_SET);
+		 newz= bigZ;
+	}
+
+	//Se encienden LEDs si se ha movido
+	if(newx != oldx){
+		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_SET);
+		lastX= HAL_GetTick();
+	}
+	if(newy != oldy){
+		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET);
+		lastX= HAL_GetTick();
+	}
+	if(newz != oldz){
+		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_SET);
+		lastX= HAL_GetTick();
+	}
+
+	//Se apagan los leds tras un rato
+	if(flagmover == 1){
+		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_RESET);
+	}
 
 
 
