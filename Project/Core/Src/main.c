@@ -45,6 +45,8 @@ ADC_HandleTypeDef hadc1;
 
 SPI_HandleTypeDef hspi1;
 
+TIM_HandleTypeDef htim2;
+
 /* USER CODE BEGIN PV */
 volatile bool flagmover;
 uint8_t newx, newy, newz;
@@ -61,6 +63,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_SPI1_Init(void);
+static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -71,6 +74,10 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 	if(GPIO_Pin == GPIO_PIN_0){
 		flagmover=1;
 	}
+
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 
 }
 /* USER CODE END 0 */
@@ -105,14 +112,15 @@ int main(void)
   MX_GPIO_Init();
   MX_ADC1_Init();
   MX_SPI1_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   // Parte del coidgo para activar el acelerometro
-  HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, 0);
   address_ctrl1 = 0x20;
-  data_ctrl1 = 0x8f; //Referesco a 800Hz,
-  HAL_SPI_Transmit(&hspi1, &address_ctrl1, 1, 50);
-  HAL_SPI_Transmit(&hspi1, &data_ctrl1, 1, 50);
-  HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_SET);
+  data_ctrl1 = 0x47; //Referesco a 800Hz,
+  HAL_SPI_Transmit(&hspi1, &address_ctrl1, 1, HAL_MAX_DELAY);
+  HAL_SPI_Transmit(&hspi1, &data_ctrl1, 1, HAL_MAX_DELAY);
+  HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, 1);
   //Mascaras
 
   /* USER CODE END 2 */
@@ -124,7 +132,7 @@ int main(void)
 	//Remplazar los valores viejos por los nuevos.
 	 oldx= newx; oldy=newy; oldz = newz;
 	// Comprobar si ha habido un cambio en los valores
-	 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_RESET);
 	 changeaddress= 0x27 | 0x80;
 	 HAL_SPI_Transmit(&hspi1, &changeaddress, 1, 50);
 	 HAL_SPI_Receive(&hspi1, &valuechange, 1, 50);
@@ -138,46 +146,46 @@ int main(void)
     /* USER CODE BEGIN 3 */
 	//Si hay nuevos valores cojerlos.
 	if(XDA == 0x01){
-		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_RESET);
-		 Xadr= 0x28 | 0x80;
-		 HAL_SPI_Transmit(&hspi1, &Xadr, 1, 50);
-		 HAL_SPI_Receive(&hspi1, &bigX, 1, 50);
-		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_SET);
-
-		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_RESET);
+		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, 0);
 		 Xadr= 0x29 | 0x80;
-		 HAL_SPI_Transmit(&hspi1, &Xadr, 1, 50);
-		 HAL_SPI_Receive(&hspi1, &smlX, 1, 50);
-		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_SET);
-		 newx= bigX;
+		 HAL_SPI_Transmit(&hspi1, &Xadr, 1, HAL_MAX_DELAY);
+		 HAL_SPI_Receive(&hspi1, &bigX, 1,  HAL_MAX_DELAY);
+		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, 1);
+
+		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, 0);
+		 Xadr= 0x28 | 0x80;
+		 HAL_SPI_Transmit(&hspi1, &Xadr, 1, HAL_MAX_DELAY);
+		 HAL_SPI_Receive(&hspi1, &smlX, 1, HAL_MAX_DELAY);
+		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, 1);
+		 newx= bigX& 0xF0;
 	}
 	if(YDA == 0x02){
 		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_RESET);
-		 Yadr= 0x2A | 0x80;
+		 Yadr= 0x2B | 0x80;
 		 HAL_SPI_Transmit(&hspi1, &Yadr, 1, 50);
 		 HAL_SPI_Receive(&hspi1, &bigY, 1, 50);
 		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_SET);
 
 		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_RESET);
-		 Yadr= 0x2B | 0x80;
+		 Yadr= 0x2A | 0x80;
 		 HAL_SPI_Transmit(&hspi1, &Yadr, 1, 50);
 		 HAL_SPI_Receive(&hspi1, &smlY, 1, 50);
 		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_SET);
-		 newy= bigY;
+		 newy= bigY & 0xf0;
 	}
 	if(ZDA == 0x04){
 		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_RESET);
-		 Zadr= 0x2C | 0x80;
+		 Zadr= 0x2D | 0x80;
 		 HAL_SPI_Transmit(&hspi1, &Zadr, 1, 50);
 		 HAL_SPI_Receive(&hspi1, &bigZ, 1, 50);
 		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_SET);
 
 		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_RESET);
-		 Zadr= 0x2D | 0x80;
+		 Zadr= 0x2C | 0x80;
 		 HAL_SPI_Transmit(&hspi1, &Zadr, 1, 50);
 		 HAL_SPI_Receive(&hspi1, &smlZ, 1, 50);
 		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_SET);
-		 newz= bigZ;
+		 newz= bigZ & 0xf0;
 	}
 
 	//Se encienden LEDs si se ha movido
@@ -340,6 +348,51 @@ static void MX_SPI1_Init(void)
   /* USER CODE BEGIN SPI1_Init 2 */
 
   /* USER CODE END SPI1_Init 2 */
+
+}
+
+/**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 9999;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 18750;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_OC1REF;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
 
 }
 
