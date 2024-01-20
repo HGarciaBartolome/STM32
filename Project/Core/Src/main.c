@@ -48,7 +48,6 @@ ADC_HandleTypeDef hadc1;
 SPI_HandleTypeDef hspi1;
 
 TIM_HandleTypeDef htim2;
-TIM_HandleTypeDef htim6;
 
 /* USER CODE BEGIN PV */
 volatile bool flagmover,flagbase;
@@ -62,12 +61,9 @@ uint8_t data_ctrl1, address_ctrl1;
 uint8_t valuechange, changeaddress;
 uint8_t XDA,YDA,ZDA, XYZDA;
 uint8_t bigX,bigY,bigZ,smlX,smlY,smlZ,Xadr,Yadr,Zadr;
+uint8_t tempadd, temperatura;
 uint32_t lastX,lastY,lastZ;
 
-//Variables para DHT11
-uint8_t Rh_byte1, Rh_byte2, Temp_byte1, Temp_byte2,Sum,Check;
-uint8_t RH, TEMP;
-uint8_t Pres=0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -76,7 +72,6 @@ static void MX_GPIO_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_TIM2_Init(void);
-static void MX_TIM6_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -95,73 +90,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 }
 
 
-//---------------------------Funciones Para DHT------------------
-
-//Funcion para hace retrasos de micro segundos
-void Retraso (uint16_t tiempo){
-	__HAL_TIM_SET_COUNTER(&htim6, 0);
-	while((__HAL_TIM_GET_COUNTER(&htim6))< tiempo){};
-}
-
-
-//Funcion para poner un Pin en modo Output
-void Pin_Output(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin){
-	GPIO_InitTypeDef GPIO_InitStruct={0};
-	GPIO_InitStruct.Pin = GPIO_Pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-	HAL_GPIO_Init(GPIOx, &GPIO_InitStruct);
-}
-//Funcion para poner un Pin en modo Input
-void Pin_Input(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin){
-	GPIO_InitTypeDef GPIO_InitStruct={0};
-	GPIO_InitStruct.Pin = GPIO_Pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-	GPIO_InitStruct.Pull = GPIO_NOPULL;
-	HAL_GPIO_Init(GPIOx, &GPIO_InitStruct);
-}
-
-
-//Funciona Para comenzar trasmision.
-void DHT11_Start(void){
-	Pin_Output(PORT_DHT, PIN_DHT);
-	HAL_GPIO_WritePin(PORT_DHT, PIN_DHT, GPIO_PIN_RESET);
-	Retraso(18000);
-	HAL_GPIO_WritePin(PORT_DHT, PIN_DHT, GPIO_PIN_SET);
-	Retraso(20);
-	Pin_Input(PORT_DHT, PIN_DHT);
-}
-
-//Funcion para confirmar respuesta
-uint8_t Conf_Respuesta(void){
-	uint8_t Resp = 0;
-	Retraso(40);
-	if (!(HAL_GPIO_ReadPin(PORT_DHT, PIN_DHT)))
-	{
-		Retraso(80);
-		if((HAL_GPIO_ReadPin(PORT_DHT, PIN_DHT))){Resp = 1;}
-		else{ Resp=-1;/* Resp = 255*/}
-	}
-	while((HAL_GPIO_ReadPin(PORT_DHT, PIN_DHT))){}
-	return Resp;
-}
-
-//Leer sensor
-uint8_t LeerDHT(void){
-	uint8_t i = 0,j = 0;
-	for(j=0; j<8 ; j++){
-		while(!(HAL_GPIO_ReadPin(PORT_DHT, PIN_DHT))){}
-		Retraso(40);
-		if(!(HAL_GPIO_ReadPin(PORT_DHT, PIN_DHT))){ //Si tras esperar el Pin es 0
-			i&= ~(1<<(7-j)); // el bit es cero
-		}
-		else{
-		i|=(1<<(7-j));
-		}// si no el bit es 1.
-		while((HAL_GPIO_ReadPin(PORT_DHT, PIN_DHT))){}
-	}
-	return i;
-}
 /* USER CODE END 0 */
 
 /**
@@ -195,7 +123,6 @@ int main(void)
   MX_ADC1_Init();
   MX_SPI1_Init();
   MX_TIM2_Init();
-  MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
   // Parte del coidgo para activar el acelerometro
   HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, 0);
@@ -213,7 +140,7 @@ int main(void)
   HAL_TIM_Base_Start_IT(&htim2);
   initX= false; initY= false; initZ= false;
   flagmover= false; flagbase= false;
-  HAL_TIM_Base_Start(&htim6);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -235,19 +162,6 @@ int main(void)
 			initZ = true;
 		}
 
-		//DHT11 Tras esperar
-		DHT11_Start();
-		Pres= Conf_Respuesta();
-		Rh_byte1 = LeerDHT();
-		Rh_byte2 = LeerDHT();
-		Temp_byte1= LeerDHT();
-		Temp_byte2= LeerDHT();
-		Sum = LeerDHT();
-
-		Check= Rh_byte1 + Rh_byte2 + Temp_byte1 + Temp_byte2;
-		RH= Rh_byte1;
-		TEMP = Temp_byte1;
-
 	}
 	// Comprobar si ha habido un cambio en los valores
 	HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_RESET);
@@ -262,6 +176,11 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, 0);
+	 tempadd= 0x29 | 0x80;
+	 HAL_SPI_Transmit(&hspi1, &tempadd, 1, HAL_MAX_DELAY);
+	 HAL_SPI_Receive(&hspi1, &temperatura, 1,  HAL_MAX_DELAY);
+	 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, 1);
 	//Si hay nuevos valores cojerlos.
 	if(XDA == 0x01){
 		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, 0);
@@ -509,44 +428,6 @@ static void MX_TIM2_Init(void)
   /* USER CODE BEGIN TIM2_Init 2 */
 
   /* USER CODE END TIM2_Init 2 */
-
-}
-
-/**
-  * @brief TIM6 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TIM6_Init(void)
-{
-
-  /* USER CODE BEGIN TIM6_Init 0 */
-
-  /* USER CODE END TIM6_Init 0 */
-
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
-
-  /* USER CODE BEGIN TIM6_Init 1 */
-
-  /* USER CODE END TIM6_Init 1 */
-  htim6.Instance = TIM6;
-  htim6.Init.Prescaler = 50-1;
-  htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim6.Init.Period = 0xffff-1;
-  htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM6_Init 2 */
-
-  /* USER CODE END TIM6_Init 2 */
 
 }
 
