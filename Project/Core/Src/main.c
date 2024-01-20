@@ -85,7 +85,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 	flagbase=true;
 }
 
-
+void DHT11_Start(void){
+	//Set_Pin
+}
 /* USER CODE END 0 */
 
 /**
@@ -183,7 +185,7 @@ int main(void)
 		 HAL_SPI_Transmit(&hspi1, &Xadr, 1, HAL_MAX_DELAY);
 		 HAL_SPI_Receive(&hspi1, &smlX, 1, HAL_MAX_DELAY);
 		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, 1);
-		 newx= bigX& 0xC0;
+		 newx= bigX& 0x80;
 	}
 	if(YDA == 0x02){
 		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_RESET);
@@ -197,7 +199,7 @@ int main(void)
 		 HAL_SPI_Transmit(&hspi1, &Yadr, 1, 50);
 		 HAL_SPI_Receive(&hspi1, &smlY, 1, 50);
 		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_SET);
-		 newy= bigY & 0xC0;
+		 newy= bigY & 0x80;
 	}
 	if(ZDA == 0x04){
 		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_RESET);
@@ -211,7 +213,7 @@ int main(void)
 		 HAL_SPI_Transmit(&hspi1, &Zadr, 1, 50);
 		 HAL_SPI_Receive(&hspi1, &smlZ, 1, 50);
 		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_SET);
-		 newz= bigZ & 0xC0;
+		 newz= bigZ & 0x80;
 	}
 
 	//Se encienden LEDs si se ha movido
