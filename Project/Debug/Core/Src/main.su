@@ -8,9 +8,9 @@
 ../Core/Src/main.c:150:9:LeerDHT	16	static
 ../Core/Src/main.c:171:5:main	8	static
 ../Core/Src/main.c:338:6:SystemClock_Config	88	static
-../Core/Src/main.c:385:13:MX_ADC1_Init	24	static
-../Core/Src/main.c:437:13:MX_SPI1_Init	8	static
-../Core/Src/main.c:475:13:MX_TIM2_Init	32	static
-../Core/Src/main.c:520:13:MX_TIM6_Init	16	static
-../Core/Src/main.c:558:13:MX_GPIO_Init	40	static
-../Core/Src/main.c:617:6:Error_Handler	4	static,ignoring_inline_asm
+../Core/Src/main.c:384:13:MX_ADC1_Init	24	static
+../Core/Src/main.c:436:13:MX_SPI1_Init	8	static
+../Core/Src/main.c:474:13:MX_TIM2_Init	32	static
+../Core/Src/main.c:519:13:MX_TIM6_Init	16	static
+../Core/Src/main.c:557:13:MX_GPIO_Init	48	static
+../Core/Src/main.c:614:6:Error_Handler	4	static,ignoring_inline_asm
