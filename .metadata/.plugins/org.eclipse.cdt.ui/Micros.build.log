@@ -1,0 +1,7 @@
+18:56:25 **** Incremental Build of configuration Debug for project Micros ****
+make -j8 all 
+make: *** No rule to make target 'C:/Users/Hector/Desktop/Uni/SED/STM32Cube/Repository/STM32Cube_FW_F4_V1.27.1/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal.c', needed by 'Drivers/STM32F4xx_HAL_Driver/stm32f4xx_hal.o'.  Stop.
+"make -j8 all" terminated with exit code 2. Build might be incomplete.
+
+18:56:25 Build Failed. 1 errors, 0 warnings. (took 297ms)
+
