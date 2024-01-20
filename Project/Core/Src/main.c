@@ -84,6 +84,8 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 	flagbase=true;
 }
+
+
 /* USER CODE END 0 */
 
 /**
@@ -213,13 +215,13 @@ int main(void)
 	}
 
 	//Se encienden LEDs si se ha movido
-	if(newx != basex && flagbase==true ){
+	if(newx != basex && initX == true ){
 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_SET);
 	}
-	if(newy != basey && flagbase==true){
+	if(newy != basey && initY == true){
 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET);
 	}
-	if(newz != basez && flagbase==true){
+	if(newz != basez && initZ == true){
 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_SET);
 	}
 
