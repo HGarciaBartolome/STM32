@@ -501,8 +501,8 @@ void Pin_Input(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin){
 	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
  800059c:	2300      	movs	r3, #0
  800059e:	613b      	str	r3, [r7, #16]
-	GPIO_InitStruct.Pull = GPIO_PULLUP;
- 80005a0:	2301      	movs	r3, #1
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+ 80005a0:	2300      	movs	r3, #0
  80005a2:	617b      	str	r3, [r7, #20]
 	HAL_GPIO_Init(GPIOx, &GPIO_InitStruct);
  80005a4:	f107 030c 	add.w	r3, r7, #12
