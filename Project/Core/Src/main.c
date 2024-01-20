@@ -128,6 +128,7 @@ void DHT11_Start(void){
 	HAL_GPIO_WritePin(PORT_DHT, PIN_DHT, GPIO_PIN_RESET);
 	Retraso(18000);
 	HAL_GPIO_WritePin(PORT_DHT, PIN_DHT, GPIO_PIN_SET);
+	Retraso(20);
 	Pin_Input(PORT_DHT, PIN_DHT);
 }
 
@@ -135,7 +136,8 @@ void DHT11_Start(void){
 uint8_t Conf_Respuesta(void){
 	uint8_t Resp = 0;
 	Retraso(40);
-	if (!(HAL_GPIO_ReadPin(PORT_DHT, PIN_DHT))){
+	if (!(HAL_GPIO_ReadPin(PORT_DHT, PIN_DHT)))
+	{
 		Retraso(80);
 		if((HAL_GPIO_ReadPin(PORT_DHT, PIN_DHT))){Resp = 1;}
 		else{ Resp=-1;/* Resp = 255*/}
@@ -153,7 +155,9 @@ uint8_t LeerDHT(void){
 		if(!(HAL_GPIO_ReadPin(PORT_DHT, PIN_DHT))){ //Si tras esperar el Pin es 0
 			i&= ~(1<<(7-j)); // el bit es cero
 		}
-		else{i|=(1<<(7-j));}// si no el bit es 1.
+		else{
+		i|=(1<<(7-j));
+		}// si no el bit es 1.
 		while((HAL_GPIO_ReadPin(PORT_DHT, PIN_DHT))){}
 	}
 	return i;
