@@ -80,9 +80,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 
 }
 
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
-	flagbase=true;
-}
+
 /* USER CODE END 0 */
 
 /**
@@ -126,7 +124,7 @@ int main(void)
   HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, 1);
 
   //Inicilazion Timer
-  HAL_TIM_Base_Start(&htim2);
+  HAL_TIM_Base_Start_IT(&htim2);
   initX= false; initY= false; initZ= false;
   /* USER CODE END 2 */
 
@@ -469,7 +467,9 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
+	flagbase=true;
+}
 /* USER CODE END 4 */
 
 /**
