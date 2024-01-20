@@ -63,7 +63,7 @@ uint8_t XDA,YDA,ZDA, XYZDA;
 uint8_t bigX,bigY,bigZ,smlX,smlY,smlZ,Xadr,Yadr,Zadr;
 uint8_t tempadd, temperatura;
 uint32_t lastX,lastY,lastZ;
-
+int Temp;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -176,11 +176,15 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+
+	// Codigo de Temperatura
 	 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, 0);
-	 tempadd= 0x29 | 0x80;
+	 tempadd= 0x0C | 0x80;
 	 HAL_SPI_Transmit(&hspi1, &tempadd, 1, HAL_MAX_DELAY);
 	 HAL_SPI_Receive(&hspi1, &temperatura, 1,  HAL_MAX_DELAY);
 	 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, 1);
+	 Temp= (signed int) temperatura;
+
 	//Si hay nuevos valores cojerlos.
 	if(XDA == 0x01){
 		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, 0);
