@@ -54,6 +54,7 @@ uint8_t newx, newy, newz;
 uint8_t basex;
 uint8_t basey;
 uint8_t basez;
+volatile int counterInterrupt=0;
 uint8_t data_ctrl1, address_ctrl1;
 uint8_t valuechange, changeaddress;
 uint8_t XDA,YDA,ZDA, XYZDA;
@@ -126,8 +127,10 @@ int main(void)
   HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, 1);
 
   //Inicilazion Timer
-  HAL_TIM_Base_Start(&htim2);
+
+  HAL_TIM_Base_Start_IT(&htim2);
   initX= false; initY= false; initZ= false;
+  flagmover= false; flagbase= false;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -138,12 +141,15 @@ int main(void)
 	if(flagbase== true){
 		if(initX == false){
 			basex=newx;
+			initX = true;
 		}
 		if(initY == false){
 			basey=newx;
+			initY = true;
 		}
 		if(initZ == false){
 			basez=newx;
+			initZ = true;
 		}
 	}
 	// Comprobar si ha habido un cambio en los valores
