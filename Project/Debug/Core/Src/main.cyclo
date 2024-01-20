@@ -6,4 +6,4 @@
 ../Core/Src/main.c:337:13:MX_SPI1_Init	2
 ../Core/Src/main.c:375:13:MX_TIM2_Init	4
 ../Core/Src/main.c:420:13:MX_GPIO_Init	1
-../Core/Src/main.c:473:6:Error_Handler	1
+../Core/Src/main.c:479:6:Error_Handler	1
