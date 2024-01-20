@@ -48,9 +48,12 @@ SPI_HandleTypeDef hspi1;
 TIM_HandleTypeDef htim2;
 
 /* USER CODE BEGIN PV */
-volatile bool flagmover;
+volatile bool flagmover,flagbase;
+bool initX, initY, initZ;
 uint8_t newx, newy, newz;
-uint8_t oldx, oldy, oldz;
+uint8_t basex;
+uint8_t basey;
+uint8_t basez;
 uint8_t data_ctrl1, address_ctrl1;
 uint8_t valuechange, changeaddress;
 uint8_t XDA,YDA,ZDA, XYZDA;
@@ -72,13 +75,13 @@ static void MX_TIM2_Init(void);
 /* USER CODE BEGIN 0 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 	if(GPIO_Pin == GPIO_PIN_0){
-		flagmover=1;
+		flagmover=true;;
 	}
 
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
-
+	flagbase=true;
 }
 /* USER CODE END 0 */
 
@@ -121,16 +124,28 @@ int main(void)
   HAL_SPI_Transmit(&hspi1, &address_ctrl1, 1, HAL_MAX_DELAY);
   HAL_SPI_Transmit(&hspi1, &data_ctrl1, 1, HAL_MAX_DELAY);
   HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, 1);
-  //Mascaras
 
+  //Inicilazion Timer
+  HAL_TIM_Base_Start(&htim2);
+  initX= false; initY= false; initZ= false;
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	//Remplazar los valores viejos por los nuevos.
-	 oldx= newx; oldy=newy; oldz = newz;
+	//Poner las bases si el timepo de establecimiento ha pasado
+	if(flagbase== true){
+		if(initX == false){
+			basex=newx;
+		}
+		if(initY == false){
+			basey=newx;
+		}
+		if(initZ == false){
+			basez=newx;
+		}
+	}
 	// Comprobar si ha habido un cambio en los valores
 	HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_RESET);
 	 changeaddress= 0x27 | 0x80;
@@ -189,24 +204,25 @@ int main(void)
 	}
 
 	//Se encienden LEDs si se ha movido
-	if(newx != oldx){
+	if(newx != basex && flagbase==true ){
 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_SET);
 		lastX= HAL_GetTick();
 	}
-	if(newy != oldy){
+	if(newy != basey && flagbase==true){
 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET);
-		lastX= HAL_GetTick();
+		lastY= HAL_GetTick();
 	}
-	if(newz != oldz){
+	if(newz != basez && flagbase==true){
 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_SET);
-		lastX= HAL_GetTick();
+		lastZ= HAL_GetTick();
 	}
 
 	//Se apagan los leds tras un rato
-	if(flagmover == 1){
+	if(flagmover == true){
 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_RESET);
 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_RESET);
 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_RESET);
+		flagmover= false;
 	}
 
 
