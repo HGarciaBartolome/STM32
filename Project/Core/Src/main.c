@@ -209,6 +209,7 @@ int main(void)
   HAL_TIM_Base_Start_IT(&htim2);
   initX= false; initY= false; initZ= false;
   flagmover= false; flagbase= false;
+  HAL_TIM_Base_Start(&htim6);
   /* USER CODE END 2 */
 
   /* Infinite loop */
