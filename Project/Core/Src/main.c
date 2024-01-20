@@ -100,7 +100,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 //Funcion para hace retrasos de micro segundos
 void Retraso (uint16_t tiempo){
 	__HAL_TIM_SET_COUNTER(&htim6, 0);
-	while((__HAL_TIM_GET_COUNTER(&htim6))< tiempo);
+	while((__HAL_TIM_GET_COUNTER(&htim6))< tiempo){};
 }
 
 
@@ -141,11 +141,12 @@ uint8_t Conf_Respuesta(void){
 		else{ Resp=-1;/* Resp = 255*/}
 	}
 	while((HAL_GPIO_ReadPin(PORT_DHT, PIN_DHT))){}
+	return Resp;
 }
 
 //Leer sensor
 uint8_t LeerDHT(void){
-	uint8_t i,j;
+	uint8_t i = 0,j = 0;
 	for(j=0; j<8 ; j++){
 		while(!(HAL_GPIO_ReadPin(PORT_DHT, PIN_DHT))){}
 		Retraso(40);
@@ -221,11 +222,11 @@ int main(void)
 			initX = true;
 		}
 		if(initY == false){
-			basey=newx;
+			basey=newy;
 			initY = true;
 		}
 		if(initZ == false){
-			basez=newx;
+			basez=newz;
 			initZ = true;
 		}
 
@@ -239,12 +240,8 @@ int main(void)
 		Sum = LeerDHT();
 
 		Check= Rh_byte1 + Rh_byte2 + Temp_byte1 + Temp_byte2;
-		if(Sum == Check){
-			RH= Rh_byte1;
-			TEMP = Temp_byte1;
-		}
-
-
+		RH= Rh_byte1;
+		TEMP = Temp_byte1;
 
 	}
 	// Comprobar si ha habido un cambio en los valores
