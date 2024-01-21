@@ -32,9 +32,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define AlertaMov 500
-#define PORT_DHT GPIOE
-#define PIN_DHT	GPIO_PIN_11
+#define DelayBounce 50
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -48,22 +46,23 @@ ADC_HandleTypeDef hadc1;
 SPI_HandleTypeDef hspi1;
 
 TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim3;
 
 /* USER CODE BEGIN PV */
 volatile bool flagmover,flagbase;
-bool initX, initY, initZ;
+volatile bool initX, initY, initZ;
 uint8_t newx, newy, newz;
 uint8_t basex;
 uint8_t basey;
 uint8_t basez;
-volatile int counterInterrupt=0;
 uint8_t data_ctrl1, address_ctrl1;
 uint8_t valuechange, changeaddress;
 uint8_t XDA,YDA,ZDA, XYZDA;
 uint8_t bigX,bigY,bigZ,smlX,smlY,smlZ,Xadr,Yadr,Zadr;
 uint8_t tempadd, temperatura;
-uint32_t lastX,lastY,lastZ;
+bool THigh,TLow;
 int Temp;
+uint32_t Bounce;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -72,6 +71,7 @@ static void MX_GPIO_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -80,15 +80,41 @@ static void MX_TIM2_Init(void);
 /* USER CODE BEGIN 0 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 	if(GPIO_Pin == GPIO_PIN_0){
-		flagmover=true;;
+		if((HAL_GetTick()-Bounce)>DelayBounce){
+			Bounce=HAL_GetTick();
+			flagmover= true;
+			HAL_TIM_Base_Start_IT(&htim3);
+		}
 	}
 
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
-	flagbase=true;
+	if(htim==&htim2){
+		flagbase=true;
+		HAL_TIM_Base_Stop_IT(&htim2);
+		__HAL_TIM_SET_COUNTER(&htim2,0);
+	}
+	if(htim==&htim3){
+		flagmover= false;
+		HAL_TIM_Base_Stop_IT(&htim3);
+		__HAL_TIM_SET_COUNTER(&htim3,0);
+		flagbase=false;
+		initX= false;
+		initY= false;
+		initZ= false;
+	}
 }
 
+int twos_to_int(uint8_t Input){
+	int value;
+	if(Input>127){
+		value= (int)-(~Input+1);
+	}else{
+		value=(int)Input;
+	}
+	return value;
+}
 
 /* USER CODE END 0 */
 
@@ -123,6 +149,7 @@ int main(void)
   MX_ADC1_Init();
   MX_SPI1_Init();
   MX_TIM2_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
   // Parte del coidgo para activar el acelerometro
   HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, 0);
@@ -183,7 +210,22 @@ int main(void)
 	 HAL_SPI_Transmit(&hspi1, &tempadd, 1, HAL_MAX_DELAY);
 	 HAL_SPI_Receive(&hspi1, &temperatura, 1,  HAL_MAX_DELAY);
 	 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, 1);
-	 Temp= (signed int) temperatura;
+
+
+	 Temp= twos_to_int(temperatura);
+	 Temp= Temp+25;
+
+	 if(Temp> 30){
+		 THigh = true;
+		 TLow = false;
+	 }else if(Temp < 10){
+		 THigh = false;
+		 TLow = true;
+	 }else{
+		 THigh = false;
+		 TLow = false;
+	 }
+
 
 	//Si hay nuevos valores cojerlos.
 	if(XDA == 0x01){
@@ -432,6 +474,51 @@ static void MX_TIM2_Init(void)
   /* USER CODE BEGIN TIM2_Init 2 */
 
   /* USER CODE END TIM2_Init 2 */
+
+}
+
+/**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 3100;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 65535;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
 
 }
 
