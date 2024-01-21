@@ -62,7 +62,7 @@ uint8_t bigX,bigY,bigZ,smlX,smlY,smlZ,Xadr,Yadr,Zadr;
 uint8_t tempadd, temperatura;
 bool THigh,TLow;
 int Temp;
-uint32_t Bounce;
+volatile uint32_t Bounce=0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -79,23 +79,18 @@ static void MX_TIM3_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
-	if(GPIO_Pin == GPIO_PIN_0){
 		if((HAL_GetTick()-Bounce)>DelayBounce){
 			Bounce=HAL_GetTick();
 			flagmover= true;
 			HAL_TIM_Base_Start_IT(&htim3);
 		}
-	}
-
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
-	if(htim==&htim2){
+	if(htim->Instance == TIM2){
 		flagbase=true;
-		HAL_TIM_Base_Stop_IT(&htim2);
-		__HAL_TIM_SET_COUNTER(&htim2,0);
 	}
-	if(htim==&htim3){
+	if(htim->Instance == TIM3){
 		flagmover= false;
 		HAL_TIM_Base_Stop_IT(&htim3);
 		__HAL_TIM_SET_COUNTER(&htim3,0);
@@ -109,9 +104,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 int twos_to_int(uint8_t Input){
 	int value;
 	if(Input>127){
-		value= (int)-(~Input+1);
+		value= -(~Input+1);
 	}else{
-		value=(int)Input;
+		value=Input;
 	}
 	return value;
 }
@@ -287,7 +282,6 @@ int main(void)
 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_RESET);
 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_RESET);
 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_RESET);
-		flagmover= false;
 	}
 
 
