@@ -92,7 +92,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 	if(htim->Instance == TIM2){
 		flagbase=true;
-		HAL_TIM_Base_Stop_IT(&htim2);
 	}
 	if(htim->Instance == TIM3){
 		flagmover= false;
@@ -196,15 +195,6 @@ int main(void)
 
 	}
 	// Comprobar si ha habido un cambio en los valores
-	HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_RESET);
-	 changeaddress= 0x27 | 0x80;
-	 HAL_SPI_Transmit(&hspi1, &changeaddress, 1, 50);
-	 HAL_SPI_Receive(&hspi1, &valuechange, 1, 50);
-	 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_SET);
-	//Se deben separar los bits importantes, para eso se utiliza el operador & y una mascara
-	 XDA= valuechange & 0x01;
-	 YDA= valuechange & 0x02;
-	 ZDA= valuechange & 0x04;
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -233,7 +223,7 @@ int main(void)
 
 
 	//Si hay nuevos valores cojerlos.
-	if(XDA == 0x01){
+	 	 //X accel
 		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, 0);
 		 Xadr= 0x29 | 0x80;
 		 HAL_SPI_Transmit(&hspi1, &Xadr, 1, HAL_MAX_DELAY);
@@ -246,8 +236,8 @@ int main(void)
 		 HAL_SPI_Receive(&hspi1, &smlX, 1, HAL_MAX_DELAY);
 		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, 1);
 		 newx= bigX& 0x80;
-	}
-	if(YDA == 0x02){
+
+		 //Y accel
 		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_RESET);
 		 Yadr= 0x2B | 0x80;
 		 HAL_SPI_Transmit(&hspi1, &Yadr, 1, 50);
@@ -260,8 +250,8 @@ int main(void)
 		 HAL_SPI_Receive(&hspi1, &smlY, 1, 50);
 		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_SET);
 		 newy= bigY & 0x80;
-	}
-	if(ZDA == 0x04){
+
+		 //Z accel
 		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_RESET);
 		 Zadr= 0x2D | 0x80;
 		 HAL_SPI_Transmit(&hspi1, &Zadr, 1, 50);
@@ -274,7 +264,7 @@ int main(void)
 		 HAL_SPI_Receive(&hspi1, &smlZ, 1, 50);
 		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_SET);
 		 newz= bigZ & 0x80;
-	}
+
 
 	//Se encienden LEDs si se ha movido
 	if(newx != basex && initX == true ){
@@ -301,12 +291,12 @@ int main(void)
 	};
 	HAL_ADC_Stop(&hadc1);
 	//Tratado ADC
-	if(valADC>220){
+	if(valADC>200){
 		dutyc = 0;
 	}else{
-		dutyc=(int)valADC;
+		dutyc=(200-(int)valADC);
 	}
-	__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3,(dutyc)*181);
+	__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3,(dutyc)*200);
   }
   /* USER CODE END 3 */
 }
