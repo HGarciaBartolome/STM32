@@ -60,6 +60,7 @@ uint8_t valuechange, changeaddress;
 uint8_t XDA,YDA,ZDA, XYZDA;
 uint8_t bigX,bigY,bigZ,smlX,smlY,smlZ,Xadr,Yadr,Zadr;
 uint8_t tempadd, temperatura;
+uint8_t valADC;
 bool THigh,TLow;
 int Temp;
 volatile uint32_t Bounce=0;
@@ -89,11 +90,14 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 	if(htim->Instance == TIM2){
 		flagbase=true;
+		HAL_TIM_Base_Stop_IT(&htim2);
 	}
 	if(htim->Instance == TIM3){
 		flagmover= false;
 		HAL_TIM_Base_Stop_IT(&htim3);
 		__HAL_TIM_SET_COUNTER(&htim3,0);
+		__HAL_TIM_SET_COUNTER(&htim2,0);
+		HAL_TIM_Base_Start_IT(&htim2);
 		flagbase=false;
 		initX= false;
 		initY= false;
@@ -284,7 +288,11 @@ int main(void)
 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_RESET);
 	}
 
-
+	 HAL_ADC_Start(&hadc1);
+	 if( HAL_ADC_PollForConversion(&hadc1,HAL_MAX_DELAY)==HAL_OK){
+		 	valADC=HAL_ADC_GetValue(&hadc1);
+	};
+	HAL_ADC_Stop(&hadc1);
 
   }
   /* USER CODE END 3 */
@@ -533,13 +541,13 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3|GPIO_PIN_11, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : PE3 PE11 */
-  GPIO_InitStruct.Pin = GPIO_PIN_3|GPIO_PIN_11;
+  /*Configure GPIO pin : PE3 */
+  GPIO_InitStruct.Pin = GPIO_PIN_3;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
