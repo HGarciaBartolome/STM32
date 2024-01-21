@@ -23,6 +23,7 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include <stdbool.h>
+#include "lcd.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -32,7 +33,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define AlertaMov 500
+#define DelayBounce 50
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -45,11 +46,13 @@ ADC_HandleTypeDef hadc1;
 
 SPI_HandleTypeDef hspi1;
 
+TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim3;
 
 /* USER CODE BEGIN PV */
 volatile bool flagmover,flagbase;
-bool initX, initY, initZ;
+volatile bool initX, initY, initZ;
 uint8_t newx, newy, newz;
 uint8_t basex;
 uint8_t basey;
@@ -58,7 +61,13 @@ uint8_t data_ctrl1, address_ctrl1;
 uint8_t valuechange, changeaddress;
 uint8_t XDA,YDA,ZDA, XYZDA;
 uint8_t bigX,bigY,bigZ,smlX,smlY,smlZ,Xadr,Yadr,Zadr;
-uint32_t lastX,lastY,lastZ;
+uint8_t tempadd, temperatura;
+uint8_t valADC;
+uint32_t Timer=0;
+bool THigh,TLow,cn;
+int Temp,dutyc;
+volatile uint32_t Bounce=0;
+LCD_t lcd;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -67,6 +76,8 @@ static void MX_GPIO_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_TIM3_Init(void);
+static void MX_TIM1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -74,12 +85,39 @@ static void MX_TIM2_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
-	if(GPIO_Pin == GPIO_PIN_0){
-		flagmover=true;;
-	}
-
+		if((HAL_GetTick()-Bounce)>DelayBounce){
+			Bounce=HAL_GetTick();
+			flagmover= true;
+			HAL_TIM_Base_Start_IT(&htim3);
+		}
 }
 
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
+	if(htim->Instance == TIM2){
+		flagbase=true;
+	}
+	if(htim->Instance == TIM3){
+		flagmover= false;
+		HAL_TIM_Base_Stop_IT(&htim3);
+		__HAL_TIM_SET_COUNTER(&htim3,0);
+		__HAL_TIM_SET_COUNTER(&htim2,0);
+		HAL_TIM_Base_Start_IT(&htim2);
+		flagbase=false;
+		initX= false;
+		initY= false;
+		initZ= false;
+	}
+}
+
+int twos_to_int(uint8_t Input){
+	int value;
+	if(Input>127){
+		value= -(~Input+1);
+	}else{
+		value=Input;
+	}
+	return value;
+}
 
 /* USER CODE END 0 */
 
@@ -114,7 +152,38 @@ int main(void)
   MX_ADC1_Init();
   MX_SPI1_Init();
   MX_TIM2_Init();
+  MX_TIM3_Init();
+  MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
+  // LCD Configuración Inicio ----------------------------------------------
+  	lcd.RS_port = GPIOB;
+  	lcd.RS_pin = GPIO_PIN_10;
+  	//lcd.RW_port = LCD_RW_GPIO_Port;
+  	//lcd.RW_pin = LCD_RW_Pin;
+  	lcd.EN_port = GPIOB;
+  	lcd.EN_pin = GPIO_PIN_1;
+  	lcd.D4_port = GPIOB;
+  	lcd.D4_pin = GPIO_PIN_15;
+  	lcd.D5_port = GPIOB;
+  	lcd.D5_pin = GPIO_PIN_14;
+  	lcd.D6_port = GPIOB;
+  	lcd.D6_pin = GPIO_PIN_13;
+  	lcd.D7_port = GPIOB;
+  	lcd.D7_pin = GPIO_PIN_12;
+
+  	//inicializamos el LCD
+  	lcd_begin(&lcd, 16, 2, LCD_5x8DOTS);
+ 	//escribimos un mensaje inicial
+	lcd_noDisplay(&lcd);
+	lcd_display(&lcd);
+	lcd_clear(&lcd);
+	lcd_home(&lcd);
+
+  	lcd_setCursor(&lcd, 0, 0);
+  	lcd_print(&lcd, "Proyecto con");
+  	lcd_setCursor(&lcd, 0, 1);
+  	lcd_print(&lcd, "Edu Hector Pablo");
+
   // Parte del coidgo para activar el acelerometro
   HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, 0);
   address_ctrl1 = 0x20;
@@ -123,9 +192,18 @@ int main(void)
   HAL_SPI_Transmit(&hspi1, &data_ctrl1, 1, HAL_MAX_DELAY);
   HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, 1);
 
+	HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_RESET);
   //Inicilazion Timer
+
   HAL_TIM_Base_Start_IT(&htim2);
   initX= false; initY= false; initZ= false;
+  flagmover= false; flagbase= false;
+
+
+  //Inicializacion PWM
+  HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_3);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -136,29 +214,101 @@ int main(void)
 	if(flagbase== true){
 		if(initX == false){
 			basex=newx;
+			initX = true;
 		}
 		if(initY == false){
-			basey=newx;
+			basey=newy;
+			initY = true;
 		}
 		if(initZ == false){
-			basez=newx;
+			basez=newz;
+			initZ = true;
 		}
+
 	}
 	// Comprobar si ha habido un cambio en los valores
-	HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_RESET);
-	 changeaddress= 0x27 | 0x80;
-	 HAL_SPI_Transmit(&hspi1, &changeaddress, 1, 50);
-	 HAL_SPI_Receive(&hspi1, &valuechange, 1, 50);
-	 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_SET);
-	//Se deben separar los bits importantes, para eso se utiliza el operador & y una mascara
-	 XDA= valuechange & 0x01;
-	 YDA= valuechange & 0x02;
-	 ZDA= valuechange & 0x04;
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+
+	// Codigo de Temperatura
+	 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, 0);
+	 tempadd= 0x0C | 0x80;
+	 HAL_SPI_Transmit(&hspi1, &tempadd, 1, HAL_MAX_DELAY);
+	 HAL_SPI_Receive(&hspi1, &temperatura, 1,  HAL_MAX_DELAY);
+	 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, 1);
+
+
+	 Temp= twos_to_int(temperatura);
+	 Temp= Temp+25;
+
+	 if(Temp> 30){
+		 THigh = true;
+		 TLow = false;
+
+	 }else if(Temp < 10){
+		 THigh = false;
+		 TLow = true;
+
+	 }else{
+		 THigh = false;
+		 TLow = false;
+		 cn = false;
+	 }
+	 //LCD temperatura
+	 if (THigh == true && cn == false){
+		  	//Mensaje de temperatura alta en LCD
+	  	    lcd_noDisplay(&lcd);
+	  	    lcd_display(&lcd);
+	  	    lcd_clear(&lcd);
+	  	    lcd_home(&lcd);
+
+		  	lcd_setCursor(&lcd, 0, 0);
+		  	lcd_print(&lcd, "Peligro !!!");
+		  	lcd_setCursor(&lcd, 0, 1);
+		  	lcd_print(&lcd, "Temp alta");
+		  	cn = true;
+
+
+	 }
+		  	else if (TLow == true && cn == false){
+			  	//Mensaje de temperatura baja en LCD
+		  	    lcd_noDisplay(&lcd);
+		  	    lcd_display(&lcd);
+		  	    lcd_clear(&lcd);
+		  	    lcd_home(&lcd);
+
+			  	lcd_setCursor(&lcd, 0, 0);
+			  	lcd_print(&lcd, "Peligro !!!");
+			  	lcd_setCursor(&lcd, 0, 1);
+			  	lcd_print(&lcd, "Temp baja");
+			  	cn = true;
+
+	 }
+		  	else if (TLow == false && THigh == false)
+		  	{
+		  	 	//escribimos el mensaje de temperatura
+		  		if((HAL_GetTick() - Timer)> 50) {
+		  		Timer= HAL_GetTick();
+		  		lcd_noDisplay(&lcd);
+		  		lcd_display(&lcd);
+		  		lcd_clear(&lcd);
+		  		lcd_home(&lcd);
+
+		  		char ttemp[20];
+		  		itoa(Temp,ttemp,10);
+
+		  	  	lcd_setCursor(&lcd, 0, 0);
+		  	  	lcd_print(&lcd, "Temperatura:");
+		  	  	lcd_setCursor(&lcd, 0, 1);
+		  	  	lcd_print(&lcd, ttemp);
+		  		}
+
+		  	}
+
+
 	//Si hay nuevos valores cojerlos.
-	if(XDA == 0x01){
+	 	 //X accel
 		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, 0);
 		 Xadr= 0x29 | 0x80;
 		 HAL_SPI_Transmit(&hspi1, &Xadr, 1, HAL_MAX_DELAY);
@@ -170,9 +320,9 @@ int main(void)
 		 HAL_SPI_Transmit(&hspi1, &Xadr, 1, HAL_MAX_DELAY);
 		 HAL_SPI_Receive(&hspi1, &smlX, 1, HAL_MAX_DELAY);
 		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, 1);
-		 newx= bigX& 0xF0;
-	}
-	if(YDA == 0x02){
+		 newx= bigX& 0x80;
+
+		 //Y accel
 		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_RESET);
 		 Yadr= 0x2B | 0x80;
 		 HAL_SPI_Transmit(&hspi1, &Yadr, 1, 50);
@@ -184,9 +334,9 @@ int main(void)
 		 HAL_SPI_Transmit(&hspi1, &Yadr, 1, 50);
 		 HAL_SPI_Receive(&hspi1, &smlY, 1, 50);
 		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_SET);
-		 newy= bigY & 0xf0;
-	}
-	if(ZDA == 0x04){
+		 newy= bigY & 0x80;
+
+		 //Z accel
 		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_RESET);
 		 Zadr= 0x2D | 0x80;
 		 HAL_SPI_Transmit(&hspi1, &Zadr, 1, 50);
@@ -198,21 +348,18 @@ int main(void)
 		 HAL_SPI_Transmit(&hspi1, &Zadr, 1, 50);
 		 HAL_SPI_Receive(&hspi1, &smlZ, 1, 50);
 		 HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3, GPIO_PIN_SET);
-		 newz= bigZ & 0xf0;
-	}
+		 newz= bigZ & 0x80;
+
 
 	//Se encienden LEDs si se ha movido
-	if(newx != basex && flagbase==true ){
+	if(newx != basex && initX == true ){
 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_SET);
-		lastX= HAL_GetTick();
 	}
-	if(newy != basey && flagbase==true){
+	if(newy != basey && initY == true){
 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET);
-		lastY= HAL_GetTick();
 	}
-	if(newz != basez && flagbase==true){
+	if(newz != basez && initZ == true){
 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_SET);
-		lastZ= HAL_GetTick();
 	}
 
 	//Se apagan los leds tras un rato
@@ -220,11 +367,21 @@ int main(void)
 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_RESET);
 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_RESET);
 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_RESET);
-		flagmover= false;
 	}
 
-
-
+	//Valor LDR
+	HAL_ADC_Start(&hadc1);
+	if( HAL_ADC_PollForConversion(&hadc1,HAL_MAX_DELAY)==HAL_OK){
+		 	valADC=HAL_ADC_GetValue(&hadc1);
+	};
+	HAL_ADC_Stop(&hadc1);
+	//Tratado ADC
+	if(valADC>200){
+		dutyc = 0;
+	}else{
+		dutyc=(200-(int)valADC);
+	}
+	__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3,(dutyc)*200);
   }
   /* USER CODE END 3 */
 }
@@ -252,7 +409,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
   RCC_OscInitStruct.PLL.PLLM = 8;
-  RCC_OscInitStruct.PLL.PLLN = 50;
+  RCC_OscInitStruct.PLL.PLLN = 100;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
   RCC_OscInitStruct.PLL.PLLQ = 7;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
@@ -266,10 +423,10 @@ void SystemClock_Config(void)
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV8;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_3) != HAL_OK)
   {
     Error_Handler();
   }
@@ -366,6 +523,71 @@ static void MX_SPI1_Init(void)
 }
 
 /**
+  * @brief TIM1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM1_Init(void)
+{
+
+  /* USER CODE BEGIN TIM1_Init 0 */
+
+  /* USER CODE END TIM1_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+  TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
+
+  /* USER CODE BEGIN TIM1_Init 1 */
+
+  /* USER CODE END TIM1_Init 1 */
+  htim1.Instance = TIM1;
+  htim1.Init.Prescaler = 0;
+  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim1.Init.Period = 65535;
+  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.RepetitionCounter = 0;
+  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_PWM_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
+  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
+  sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
+  sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
+  sBreakDeadTimeConfig.DeadTime = 0;
+  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
+  sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
+  sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
+  if (HAL_TIMEx_ConfigBreakDeadTime(&htim1, &sBreakDeadTimeConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM1_Init 2 */
+
+  /* USER CODE END TIM1_Init 2 */
+  HAL_TIM_MspPostInit(&htim1);
+
+}
+
+/**
   * @brief TIM2 Initialization Function
   * @param None
   * @retval None
@@ -411,6 +633,51 @@ static void MX_TIM2_Init(void)
 }
 
 /**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 3100;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 65535;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -424,10 +691,15 @@ static void MX_GPIO_Init(void)
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_SET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1|GPIO_PIN_10|GPIO_PIN_12|GPIO_PIN_13
+                          |GPIO_PIN_14|GPIO_PIN_15, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15, GPIO_PIN_RESET);
@@ -445,11 +717,14 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : PE11 */
-  GPIO_InitStruct.Pin = GPIO_PIN_11;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  /*Configure GPIO pins : PB1 PB10 PB12 PB13
+                           PB14 PB15 */
+  GPIO_InitStruct.Pin = GPIO_PIN_1|GPIO_PIN_10|GPIO_PIN_12|GPIO_PIN_13
+                          |GPIO_PIN_14|GPIO_PIN_15;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PD12 PD13 PD14 PD15 */
   GPIO_InitStruct.Pin = GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15;
@@ -467,9 +742,7 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
-	flagbase=true;
-}
+
 /* USER CODE END 4 */
 
 /**
